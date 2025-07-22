@@ -245,43 +245,15 @@ class ClaudeAnalytics {
     if (projectIndex !== -1 && projectIndex + 1 < pathParts.length) {
       const projectDir = pathParts[projectIndex + 1];
       // Clean up the project directory name
-      // The directory name is like: -Users-user-Projects-awesome-project-viewer
-      // We want to extract just the project name at the end
-      const parts = projectDir.split('-');
+      // The directory name is like: -Users-thom-10-19-projects-notice-wise-docs
+      // We want to extract just the project name at the end (notice-wise-docs)
       
-      // Find where the actual project path starts (after home directory components)
-      // Look for common path indicators
-      let projectStartIndex = -1;
-      for (let i = 0; i < parts.length; i++) {
-        if (parts[i] === 'Projects' || parts[i] === 'repos' || parts[i] === 'code' || 
-            parts[i] === 'src' || parts[i] === 'dev' || parts[i] === 'workspace' ||
-            parts[i] === 'git' || parts[i] === 'github') {
-          projectStartIndex = i + 1;
-          break;
-        }
-      }
+      // Convert the encoded path back to a real path
+      const decodedPath = projectDir.replace(/^-/, '/').replace(/-/g, '/');
       
-      // If we found a project directory marker, use everything after it
-      // Otherwise, try to detect based on typical home directory patterns
-      if (projectStartIndex === -1) {
-        // Skip typical home directory components (empty, Users/users, username, optional dirs)
-        let skipCount = 0;
-        if (parts[0] === '') skipCount++; // Leading dash creates empty element
-        if (parts[skipCount] && parts[skipCount].toLowerCase() === 'users') skipCount++;
-        if (parts[skipCount]) skipCount++; // Skip username
-        
-        // Check if there are more parts that look like path components before the project
-        while (skipCount < parts.length - 1 && 
-               (parts[skipCount] === 'Documents' || parts[skipCount] === 'Desktop' || 
-                parts[skipCount] === 'Downloads' || parts[skipCount] === 'Home')) {
-          skipCount++;
-        }
-        
-        projectStartIndex = skipCount;
-      }
-      
-      // Join the remaining parts with dashes to get the full project name
-      const projectName = parts.slice(projectStartIndex).join('-');
+      // Get just the last component of the path (the actual project name)
+      const decodedPathParts = decodedPath.split('/');
+      const projectName = decodedPathParts[decodedPathParts.length - 1];
       
       return projectName || 'Unknown';
     }

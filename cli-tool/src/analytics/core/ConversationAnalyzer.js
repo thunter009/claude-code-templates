@@ -376,43 +376,57 @@ class ConversationAnalyzer {
     if (projectIndex !== -1 && projectIndex + 1 < pathParts.length) {
       const projectDir = pathParts[projectIndex + 1];
       // Clean up the project directory name
-      // The directory name is like: -Users-user-Projects-awesome-project-viewer
-      // We want to extract just the project name at the end
+      // The directory appears to be encoded with dashes, but we need to be careful
+      // about which dashes are path separators vs part of the project name
+      
+      // First, let's see what we're working with
+      console.log('DEBUG: projectDir =', projectDir);
+      console.log('DEBUG: full filePath =', filePath);
+      
+      // Split by dash, but we need to intelligently reconstruct the path
       const parts = projectDir.split('-');
       
-      // Find where the actual project path starts (after home directory components)
-      // Look for common path indicators
-      let projectStartIndex = -1;
-      for (let i = 0; i < parts.length; i++) {
-        if (parts[i] === 'Projects' || parts[i] === 'repos' || parts[i] === 'code' || 
-            parts[i] === 'src' || parts[i] === 'dev' || parts[i] === 'workspace' ||
-            parts[i] === 'git' || parts[i] === 'github') {
-          projectStartIndex = i + 1;
+      // Find the last occurrence of common parent directory names
+      let lastParentIndex = -1;
+      const parentDirs = ['projects', 'repos', 'code', 'src', 'dev', 'workspace', 
+                         'git', 'github', 'Documents', 'Desktop', 'Downloads'];
+      
+      for (let i = parts.length - 1; i >= 0; i--) {
+        // Check if this part matches any parent directory pattern
+        if (parentDirs.includes(parts[i]) || /^\d+$/.test(parts[i]) || 
+            /^\d+_\d+$/.test(parts[i].replace('-', '_'))) {
+          lastParentIndex = i;
           break;
         }
       }
       
-      // If we found a project directory marker, use everything after it
-      // Otherwise, try to detect based on typical home directory patterns
-      if (projectStartIndex === -1) {
-        // Skip typical home directory components (empty, Users/users, username, optional dirs)
-        let skipCount = 0;
-        if (parts[0] === '') skipCount++; // Leading dash creates empty element
-        if (parts[skipCount] && parts[skipCount].toLowerCase() === 'users') skipCount++;
-        if (parts[skipCount]) skipCount++; // Skip username
+      // If we found a parent directory, everything after it is the project name
+      // Otherwise, look for the pattern where we have user directory structure
+      if (lastParentIndex === -1) {
+        // Look for username position (typically after empty string and 'Users')
+        let userIndex = -1;
+        if (parts[0] === '') userIndex = 1; // Path started with /
+        if (parts[userIndex] && parts[userIndex].toLowerCase() === 'users') userIndex++;
         
-        // Check if there are more parts that look like path components before the project
-        while (skipCount < parts.length - 1 && 
-               (parts[skipCount] === 'Documents' || parts[skipCount] === 'Desktop' || 
-                parts[skipCount] === 'Downloads' || parts[skipCount] === 'Home')) {
-          skipCount++;
+        // Skip username and any intermediate directories
+        if (userIndex >= 0 && userIndex < parts.length - 1) {
+          // Start from after the username
+          lastParentIndex = userIndex;
+          
+          // Skip any numeric or date-like directories (e.g., "10-19")
+          for (let i = userIndex + 1; i < parts.length - 1; i++) {
+            if (/^\d+$/.test(parts[i]) || /^\d+_\d+$/.test(parts[i].replace('-', '_'))) {
+              lastParentIndex = i;
+            }
+          }
         }
-        
-        projectStartIndex = skipCount;
       }
       
-      // Join the remaining parts with dashes to get the full project name
-      const projectName = parts.slice(projectStartIndex).join('-');
+      // Get the project name parts and join them
+      const projectParts = parts.slice(lastParentIndex + 1);
+      const projectName = projectParts.join('-');
+      
+      console.log('DEBUG: extracted projectName =', projectName);
       
       return projectName || 'Unknown';
     }
